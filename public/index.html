@@ -8,6 +8,18 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Access Key Overlay -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="glass-panel card" style="text-align: center; max-width: 320px; width: 90%; margin: auto; padding: 30px;">
+            <div class="logo" style="margin-bottom: 20px; font-size: 2.5rem;">🔒</div>
+            <h2 style="margin-bottom: 10px;">Access Restricted</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">Enter the developer access key to use the dashboard.</p>
+            <input type="password" id="accessKeyInput" placeholder="Enter Key..." style="margin-bottom: 15px; width: 100%; text-align: center;">
+            <button class="btn btn-primary" id="loginBtn" style="width: 100%;">Unlock</button>
+            <p id="authError" style="color: var(--danger); font-size: 0.85rem; margin-top: 15px; display: none; font-weight: 600;">Incorrect Key!</p>
+        </div>
+    </div>
+
     <div class="background-anim"></div>
     <div class="app-container">
         <header class="glass-panel">

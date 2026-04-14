@@ -1,5 +1,29 @@
 const socket = io();
 
+// Authentication Logic
+const authOverlay = document.getElementById('authOverlay');
+const accessKeyInput = document.getElementById('accessKeyInput');
+const loginBtn = document.getElementById('loginBtn');
+const authError = document.getElementById('authError');
+
+loginBtn.addEventListener('click', () => {
+    if (accessKeyInput.value === 'error') {
+        authOverlay.classList.add('hidden');
+        setTimeout(() => authOverlay.style.display = 'none', 500); // Remove from DOM flow after fade
+    } else {
+        authError.style.display = 'block';
+        accessKeyInput.style.borderColor = 'var(--danger)';
+        setTimeout(() => {
+            authError.style.display = 'none';
+            accessKeyInput.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }, 2000);
+    }
+});
+
+accessKeyInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+});
+
 // UI Elements
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
