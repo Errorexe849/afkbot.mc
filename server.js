@@ -45,7 +45,9 @@ io.on('connection', (socket) => {
                 host: config.host || 'localhost',
                 port: parseInt(config.port) || 25565,
                 username: config.username || 'AFK_Bot',
-                auth: config.auth || 'offline'
+                auth: config.auth || 'offline',
+                hideErrors: true,
+                checkTimeoutInterval: 120000 // IMPORTANT: Wait 2 whole minutes for the server instead of default 30s!
             };
             if (config.version) {
                  botConfig.version = config.version;
