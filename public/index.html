@@ -80,7 +80,8 @@
                 <div class="logs-container" id="logsContainer">
                     <div class="log-entry system">System initialized. Waiting for connection...</div>
                 </div>
-                <div class="chat-input-area">
+                <div class="chat-input-area" style="position: relative;">
+                    <div id="autocompleteBox" class="autocomplete-box hidden"></div>
                     <input type="text" id="chatInput" placeholder="Type a message or command (e.g. /spawn)">
                     <button class="btn btn-primary" id="sendChatBtn">Send</button>
                 </div>

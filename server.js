@@ -187,6 +187,18 @@ io.on('connection', (socket) => {
             socket.emit('log', 'Cannot send chat: Bot is not connected.');
         }
     });
+
+    socket.on('requestTabComplete', async (text) => {
+        if (bot && bot.entity) {
+            try {
+                // Tab complete via mineflayer 
+                const matches = await bot.tabComplete(text);
+                socket.emit('tabCompleteResults', matches);
+            } catch (e) {
+                socket.emit('tabCompleteResults', []);
+            }
+        }
+    });
 });
 
 const PORT = process.env.PORT || 3000;

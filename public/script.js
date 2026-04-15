@@ -140,18 +140,96 @@ stopBtn.addEventListener('click', () => {
     socket.emit('stopBot');
 });
 
-sendChatBtn.addEventListener('click', () => {
+let selectedSuggestionIndex = -1;
+const autocompleteBox = document.getElementById('autocompleteBox');
+
+function sendChat() {
     const msg = chatInput.value.trim();
     if (msg) {
         socket.emit('sendChat', msg);
         chatInput.value = '';
+        autocompleteBox.classList.add('hidden');
+    }
+}
+
+sendChatBtn.addEventListener('click', sendChat);
+
+chatInput.addEventListener('keydown', (e) => {
+    const suggestions = autocompleteBox.querySelectorAll('.suggestion-item');
+    if (e.key === 'Enter') {
+        if (!autocompleteBox.classList.contains('hidden') && selectedSuggestionIndex >= 0) {
+            e.preventDefault();
+            suggestions[selectedSuggestionIndex].click();
+        } else {
+            sendChat();
+        }
+    } else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (suggestions.length > 0) {
+            suggestions[Math.max(0, selectedSuggestionIndex)].click();
+        }
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (selectedSuggestionIndex < suggestions.length - 1) {
+            selectedSuggestionIndex++;
+            updateSuggestionHighlight(suggestions);
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (selectedSuggestionIndex > 0) {
+            selectedSuggestionIndex--;
+            updateSuggestionHighlight(suggestions);
+        }
     }
 });
 
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        sendChatBtn.click();
+chatInput.addEventListener('input', () => {
+    const val = chatInput.value;
+    if (val.startsWith('/')) {
+        socket.emit('requestTabComplete', val);
+    } else {
+        autocompleteBox.classList.add('hidden');
     }
+});
+
+function updateSuggestionHighlight(suggestions) {
+    suggestions.forEach((el, index) => {
+        if (index === selectedSuggestionIndex) {
+            el.classList.add('selected');
+            el.scrollIntoView({ block: 'nearest' });
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+}
+
+socket.on('tabCompleteResults', (results) => {
+    if (!results || results.length === 0 || !chatInput.value.startsWith('/')) {
+        autocompleteBox.classList.add('hidden');
+        return;
+    }
+    
+    autocompleteBox.innerHTML = '';
+    selectedSuggestionIndex = -1;
+    
+    results.forEach((match, index) => {
+        const text = typeof match === 'string' ? match : match.match;
+        const div = document.createElement('div');
+        div.className = 'suggestion-item';
+        div.textContent = text;
+        
+        div.addEventListener('click', () => {
+            const words = chatInput.value.split(' ');
+            words[words.length - 1] = text;
+            chatInput.value = words.join(' ') + ' ';
+            chatInput.focus();
+            autocompleteBox.classList.add('hidden');
+        });
+        
+        autocompleteBox.appendChild(div);
+    });
+    
+    autocompleteBox.classList.remove('hidden');
 });
 
 // Quick action
