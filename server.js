@@ -11,6 +11,7 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 let bot = null;
+let lastScoreboardData = null;
 
 process.on('uncaughtException', (err) => {
     console.error('CRITICAL UNCAUGHT EXCEPTION:', err);
@@ -59,6 +60,109 @@ io.on('connection', (socket) => {
                 socket.emit('log', `Bot successfully logged in as ${bot.username}`);
                 socket.emit('botStatus', 'Connected');
             });
+
+            // ---- Scoreboard / Sidebar Tracking ----
+            function parseScoreboardData() {
+                if (!bot || !bot.scoreboard) return null;
+                const data = { sidebar: [], playerList: [], belowName: null, rawObjectives: {} };
+
+                try {
+                    // Sidebar scoreboard (most common for money/playtime/keys)
+                    const sidebarObj = bot.scoreboard.sidebar;
+                    if (sidebarObj) {
+                        data.sidebarTitle = sidebarObj.displayName ? (typeof sidebarObj.displayName === 'string' ? sidebarObj.displayName : JSON.stringify(sidebarObj.displayName)) : sidebarObj.name;
+                        const items = sidebarObj.itemsMap || {};
+                        const sortedItems = Object.values(items).sort((a, b) => b.value - a.value);
+                        sortedItems.forEach(item => {
+                            let displayName = item.displayName;
+                            if (displayName && typeof displayName !== 'string') {
+                                displayName = displayName.toString ? displayName.toString() : JSON.stringify(displayName);
+                            }
+                            data.sidebar.push({
+                                name: item.name,
+                                displayName: displayName || item.name,
+                                value: item.value
+                            });
+                        });
+                    }
+
+                    // Player list scoreboard (tab list)
+                    const listObj = bot.scoreboard.list;
+                    if (listObj) {
+                        data.playerListTitle = listObj.displayName ? (typeof listObj.displayName === 'string' ? listObj.displayName : JSON.stringify(listObj.displayName)) : listObj.name;
+                        const items = listObj.itemsMap || {};
+                        Object.values(items).forEach(item => {
+                            let displayName = item.displayName;
+                            if (displayName && typeof displayName !== 'string') {
+                                displayName = displayName.toString ? displayName.toString() : JSON.stringify(displayName);
+                            }
+                            data.playerList.push({
+                                name: item.name,
+                                displayName: displayName || item.name,
+                                value: item.value
+                            });
+                        });
+                    }
+
+                    // Below name objective
+                    const belowNameObj = bot.scoreboard.belowName;
+                    if (belowNameObj) {
+                        data.belowName = {
+                            title: belowNameObj.displayName ? (typeof belowNameObj.displayName === 'string' ? belowNameObj.displayName : JSON.stringify(belowNameObj.displayName)) : belowNameObj.name,
+                            name: belowNameObj.name
+                        };
+                    }
+
+                    // All registered objectives
+                    if (bot.scoreboard.objectives) {
+                        Object.entries(bot.scoreboard.objectives).forEach(([key, obj]) => {
+                            const items = obj.itemsMap || {};
+                            const entries = [];
+                            Object.values(items).forEach(item => {
+                                let displayName = item.displayName;
+                                if (displayName && typeof displayName !== 'string') {
+                                    displayName = displayName.toString ? displayName.toString() : JSON.stringify(displayName);
+                                }
+                                entries.push({
+                                    name: item.name,
+                                    displayName: displayName || item.name,
+                                    value: item.value
+                                });
+                            });
+                            data.rawObjectives[key] = {
+                                displayName: obj.displayName ? (typeof obj.displayName === 'string' ? obj.displayName : JSON.stringify(obj.displayName)) : obj.name,
+                                entries: entries
+                            };
+                        });
+                    }
+                } catch (e) {
+                    socket.emit('log', `[Scoreboard] Error parsing data: ${e.message}`);
+                }
+
+                return data;
+            }
+
+            function emitScoreboard() {
+                const data = parseScoreboardData();
+                if (data) {
+                    lastScoreboardData = data;
+                    io.emit('scoreboardData', data);
+                }
+            }
+
+            // Scoreboard update events
+            bot.on('scoreboardCreated', () => { setTimeout(emitScoreboard, 500); });
+            bot.on('scoreboardUpdated', () => { emitScoreboard(); });
+            bot.on('scoreboardDeleted', () => { emitScoreboard(); });
+            bot.on('scoreUpdated', () => { emitScoreboard(); });
+            bot.on('scoreRemoved', () => { emitScoreboard(); });
+            bot.on('scoreboardPosition', () => { setTimeout(emitScoreboard, 300); });
+
+            // Also refresh scoreboard every 10 seconds as a fallback
+            const scoreboardInterval = setInterval(() => {
+                if (bot) emitScoreboard();
+                else clearInterval(scoreboardInterval);
+            }, 10000);
 
             bot.on('spawn', () => {
                 if (config.onJoinCommand) {
@@ -131,26 +235,43 @@ io.on('connection', (socket) => {
                 }
             });
 
+            // Track recent chat messages to avoid duplicates between 'chat' and 'message' events
+            const recentChatMessages = [];
+
             bot.on('chat', (username, message) => {
-                if (username === bot.username) return; // Prevent echoing own messages mostly
-                socket.emit('chatMessage', `[${username}] ${message}`);
+                if (username === bot.username) return;
+                const formatted = `${username} » ${message}`;
+                recentChatMessages.push(message);
+                // Keep only last 20 to avoid memory buildup
+                if (recentChatMessages.length > 20) recentChatMessages.shift();
+                socket.emit('chatMessage', { text: formatted, type: 'player', username: username });
             });
 
-            bot.on('message', (message) => {
-                // Some server messages come here
-                socket.emit('chatMessage', message.toString());
+            bot.on('message', (message, position) => {
+                const msgText = message.toString().trim();
+                if (!msgText) return;
+
+                // Skip if this was already handled by the 'chat' event
+                const isDuplicate = recentChatMessages.some(recent => msgText.includes(recent));
+                if (isDuplicate) return;
+
+                // This is a system/server message (not a player chat)
+                socket.emit('chatMessage', { text: msgText, type: 'system' });
             });
 
             bot.on('end', () => {
                 socket.emit('log', 'Bot disconnected from server.');
                 socket.emit('botStatus', 'Disconnected');
                 bot = null;
+                lastScoreboardData = null;
+                io.emit('scoreboardData', null);
             });
 
             bot.on('error', (err) => {
                 socket.emit('log', `Bot Error: ${err.message}`);
                 socket.emit('botStatus', 'Disconnected');
                 bot = null;
+                lastScoreboardData = null;
             });
 
             bot.on('kicked', (reason, loggedIn) => {
@@ -158,6 +279,7 @@ io.on('connection', (socket) => {
                 socket.emit('log', `Bot Kicked: ${reasonStr}`);
                 socket.emit('botStatus', 'Disconnected');
                 bot = null;
+                lastScoreboardData = null;
             });
 
         } catch (error) {
@@ -197,6 +319,13 @@ io.on('connection', (socket) => {
             } catch (e) {
                 socket.emit('tabCompleteResults', []);
             }
+        }
+    });
+
+    // Send cached scoreboard data when a new client connects
+    socket.on('requestScoreboard', () => {
+        if (lastScoreboardData) {
+            socket.emit('scoreboardData', lastScoreboardData);
         }
     });
 });

@@ -87,6 +87,39 @@
                 </div>
             </section>
         </main>
+
+        <!-- Scoreboard Section -->
+        <section class="card glass-panel scoreboard-section" id="scoreboardSection">
+            <div class="scoreboard-header">
+                <div class="scoreboard-title-area">
+                    <span class="scoreboard-icon">📊</span>
+                    <h2>Server Scoreboard</h2>
+                </div>
+                <div class="scoreboard-controls">
+                    <div class="scoreboard-tabs">
+                        <button class="tab-btn active" data-tab="sidebar" id="tabSidebar">Sidebar</button>
+                        <button class="tab-btn" data-tab="objectives" id="tabObjectives">All Objectives</button>
+                    </div>
+                    <button class="btn btn-secondary scoreboard-refresh-btn" id="refreshScoreboard" title="Refresh Scoreboard">⟳</button>
+                </div>
+            </div>
+            <div class="scoreboard-status" id="scoreboardStatus">
+                <div class="scoreboard-empty">
+                    <span class="empty-icon">🔌</span>
+                    <p>Connect the bot to view scoreboard data</p>
+                </div>
+            </div>
+            <div class="scoreboard-content hidden" id="scoreboardContent">
+                <!-- Sidebar Tab -->
+                <div class="scoreboard-tab-content active" id="tabContentSidebar">
+                    <div class="sidebar-board" id="sidebarBoard"></div>
+                </div>
+                <!-- All Objectives Tab -->
+                <div class="scoreboard-tab-content" id="tabContentObjectives">
+                    <div class="objectives-grid" id="objectivesGrid"></div>
+                </div>
+            </div>
+        </section>
     </div>
 
     <!-- Official Copyright and Dev Credit -->
